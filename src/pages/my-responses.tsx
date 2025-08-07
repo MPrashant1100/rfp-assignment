@@ -1,52 +1,38 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Card from '../components/Card';
-import StatusBadge from '../components/StatusBadge';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { useState, useEffect } from "react";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Card from "@/components/Card";
+import StatusBadge from "@/components/StatusBadge";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
-function decodeToken(token: string) {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    return null;
-  }
+interface Response {
+  _id: string;
+  file: string;
+  status: string;
+  createdAt: string;
+  rfp?: { title: string };
 }
 
-export default function MyResponses() {
-  const [responses, setResponses] = useState([]);
+const MyResponsesPage: React.FC = () => {
+  const [responses, setResponses] = useState<Response[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const router = useRouter();
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) {
-      router.replace('/login');
-      return;
-    }
-    const decoded = decodeToken(token);
-    if (!decoded || decoded.role !== 'Supplier') {
-      router.replace('/dashboard');
-      return;
-    }
-    fetchResponses();
-  }, [router]);
-
-  const fetchResponses = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/response', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to fetch responses');
-      setResponses(data.responses || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    (async () => {
+      try {
+        const res = await fetch("/api/response", {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Failed to load responses");
+        setResponses(json.responses ?? []);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   if (loading) {
     return (
@@ -65,22 +51,30 @@ export default function MyResponses() {
         {error && <div className="text-red-500 mb-4">{error}</div>}
         {responses.length === 0 ? (
           <Card>
-            <p className="text-gray-500 text-center">No responses submitted yet.</p>
+            <p className="text-gray-500 text-center">No responses yet.</p>
           </Card>
         ) : (
           <div className="space-y-4">
-            {responses.map((response: any) => (
-              <Card key={response._id}>
+            {responses.map((resp) => (
+              <Card key={resp._id}>
                 <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-semibold">Response to: {response.rfp?.title || 'Unknown RFP'}</h3>
+                  <div className="w-2/3">
+                    <h3 className="text-lg font-semibold">
+                      Response to: {resp.rfp?.title ?? "Unknown RFP"}
+                    </h3>
                     <p className="text-sm text-gray-500 mt-2">
-                      Submitted: {new Date(response.createdAt).toLocaleDateString()}
+                      Submitted: {new Date(resp.createdAt).toLocaleDateString()}
                     </p>
+                    <a
+                      href={resp.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline text-sm mt-2 block"
+                    >
+                      Download Response
+                    </a>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <StatusBadge status={response.status} />
-                  </div>
+                  <StatusBadge status={resp.status} />
                 </div>
               </Card>
             ))}
@@ -89,4 +83,12 @@ export default function MyResponses() {
       </div>
     </div>
   );
-} 
+};
+
+const MyResponses: React.FC = () => (
+  <ProtectedRoute allowedRoles={["Supplier"]}>
+    <MyResponsesPage />
+  </ProtectedRoute>
+);
+
+export default MyResponses;

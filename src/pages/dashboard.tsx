@@ -1,63 +1,91 @@
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import NavBar from "@/components/NavBar";
+import Link from "next/link";
 
-function decodeToken(token: string) {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    return null;
-  }
-}
-
-export default function Dashboard() {
+const DashboardPage: React.FC = () => {
   const [role, setRole] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!token) {
-      router.replace('/login');
+      router.replace("/login");
       return;
     }
-    const decoded = decodeToken(token);
-    if (!decoded || !decoded.role) {
-      router.replace('/login');
-      return;
+    try {
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      if (!decoded.role) throw new Error();
+      setRole(decoded.role);
+    } catch {
+      router.replace("/login");
     }
-    setRole(decoded.role);
   }, [router]);
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    router.push("/login");
+  };
+
   if (!role) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
+
+  const links =
+    role === "Buyer"
+      ? [
+          { href: "/create-rfp", label: "Create RFP" },
+          { href: "/my-rfps", label: "My RFPs" },
+          { href: "/review-responses", label: "Review Responses" },
+        ]
+      : [
+          { href: "/browse-rfps", label: "Browse RFPs" },
+          { href: "/my-responses", label: "My Responses" },
+        ];
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow p-4 flex justify-between items-center">
-        <span className="font-bold text-xl">RFP Dashboard</span>
+      <NavBar links={[{ href: "/", label: "Dashboard" }, ...links]} />
+      <div className="p-4 flex justify-end">
         <button
           className="bg-red-500 text-white px-4 py-2 rounded"
-          onClick={() => {
-            localStorage.removeItem('token');
-            router.push('/login');
-          }}
-        >Logout</button>
-      </nav>
+          onClick={handleLogout}
+        >
+          Logout
+        </button>
+      </div>
       <div className="max-w-3xl mx-auto mt-8 bg-white p-8 rounded shadow">
         <h2 className="text-2xl font-bold mb-4">Welcome, {role}</h2>
-        {role === 'Buyer' ? (
-          <ul className="space-y-2">
-            <li><a href="/create-rfp" className="text-blue-600 hover:underline">Create RFP</a></li>
-            <li><a href="/my-rfps" className="text-blue-600 hover:underline">My RFPs</a></li>
-            <li><a href="/review-responses" className="text-blue-600 hover:underline">Review Responses</a></li>
-          </ul>
-        ) : (
-          <ul className="space-y-2">
-            <li><a href="/browse-rfps" className="text-blue-600 hover:underline">Browse RFPs</a></li>
-            <li><a href="/my-responses" className="text-blue-600 hover:underline">My Responses</a></li>
-          </ul>
-        )}
+        <ul className="space-y-2">
+          {links.map((link) => (
+            <li key={link.href}>
+              <Link
+                href={link.href}
+                className={`text-blue-600 hover:underline ${
+                  router.pathname === link.href ? "font-bold underline" : ""
+                }`}
+              >
+                {link.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
-}
+};
+
+const Dashboard: React.FC = () => (
+  <ProtectedRoute>
+    <DashboardPage />
+  </ProtectedRoute>
+);
+
+export default Dashboard;

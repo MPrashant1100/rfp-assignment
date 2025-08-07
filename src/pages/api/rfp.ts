@@ -1,34 +1,63 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '../../lib/mongodb';
-import RFP from '../../models/RFP';
-// import User from '../../models/User';
-import User from '@/models/User';
-import { withRole, verifyToken } from '../../lib/auth';
+import type { NextApiRequest, NextApiResponse } from "next";
+import dbConnect from "@/lib/mongodb";
+import RFP from "@/models/RFP";
+import { withRole, verifyToken } from "@/lib/auth";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   await dbConnect();
-  if (req.method === 'POST') {
-    // Only Buyer can create
-    return withRole(async (req: any, res: NextApiResponse) => {
-      const { title, description, file } = req.body;
-      if (!title || !description || !file) {
-        return res.status(400).json({ message: 'Missing required fields' });
-      }
-      const user = req.user;
-      const rfp = await RFP.create({
-        title,
-        description,
-        file,
-        status: 'Draft',
-        createdBy: user.userId,
-      });
-      res.status(201).json({ message: 'RFP created', rfp });
-    }, ['Buyer'])(req, res);
-  } else if (req.method === 'GET') {
-    // List all RFPs
-    const rfps = await RFP.find().populate('createdBy', 'email role');
-    res.status(200).json({ rfps });
-  } else {
-    res.status(405).json({ message: 'Method not allowed' });
+
+  if (req.method === "POST") {
+    // Buyer-only create
+    const { title, description, file } = req.body as {
+      title?: string;
+      description?: string;
+      file?: string;
+    };
+    if (!title || !description || !file) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    const user = (req as any).user;
+    const rfp = await RFP.create({
+      title,
+      description,
+      createdBy: user.userId,
+      status: "Draft",
+      versions: [{ filePath: file, version: 1, uploadedAt: new Date() }],
+    });
+    return res.status(201).json({ message: "RFP created", rfp });
   }
-}
+
+  if (req.method === "GET") {
+    // MUST be authenticated
+    const tokenData = verifyToken(req);
+    if (!tokenData) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (tokenData.role === "Buyer") {
+      // Buyer's own RFPs
+      const rfps = await RFP.find({ createdBy: tokenData.userId })
+        .sort({ createdAt: -1 })
+        .lean();
+      return res.status(200).json({ rfps });
+    } else if (tokenData.role === "Supplier") {
+      // All published RFPs
+      const rfps = await RFP.find({ status: "Published" })
+        .sort({ createdAt: -1 })
+        .lean();
+      return res.status(200).json({ rfps });
+    } else {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+  }
+
+  return res.status(405).json({ error: "Method Not Allowed" });
+};
+
+// Wrap only POST in withRole, leave GET free to handle both roles
+export default (req: NextApiRequest, res: NextApiResponse) => {
+  if (req.method === "POST") {
+    return withRole(handler, ["Buyer"])(req, res);
+  }
+  return handler(req, res);
+};
