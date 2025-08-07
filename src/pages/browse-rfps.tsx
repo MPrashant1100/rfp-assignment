@@ -1,89 +1,83 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Card from '../components/Card';
-import StatusBadge from '../components/StatusBadge';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { useState, useEffect, FormEvent } from "react";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Card from "@/components/Card";
+import StatusBadge from "@/components/StatusBadge";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
-function decodeToken(token: string) {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    return null;
-  }
+interface Version {
+  filePath: string;
+  version: number;
+  uploadedAt: string;
 }
 
-export default function BrowseRFPs() {
-  const [rfps, setRfps] = useState([]);
+interface RFP {
+  _id: string;
+  title: string;
+  description: string;
+  status: string;
+  createdAt: string;
+  versions: Version[];
+}
+
+const BrowseRFPsPage: React.FC = () => {
+  const [rfps, setRfps] = useState<RFP[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [selectedRfp, setSelectedRfp] = useState(null);
-  const [file, setFile] = useState(null);
+  const [error, setError] = useState("");
+  const [selectedRfp, setSelectedRfp] = useState<RFP | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const router = useRouter();
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) {
-      router.replace('/login');
-      return;
-    }
-    const decoded = decodeToken(token);
-    if (!decoded || decoded.role !== 'Supplier') {
-      router.replace('/dashboard');
-      return;
-    }
-    fetchRFPs();
-  }, [router]);
+    (async () => {
+      try {
+        const res = await fetch("/api/rfp", {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Failed to fetch RFPs");
+        setRfps(json.rfps ?? []);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
-  const fetchRFPs = async () => {
-    try {
-      const res = await fetch('/api/rfp');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to fetch RFPs');
-      setRfps(data.rfps || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmitResponse = async (e) => {
+  const handleSubmitResponse = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedRfp || !file) return;
-    
     setSubmitting(true);
     try {
-      // Upload file
-      const formData = new FormData();
-      formData.append('file', file);
-      const token = localStorage.getItem('token');
-      const uploadRes = await fetch('/api/response-upload', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
+      // upload file
+      const form = new FormData();
+      form.append("file", file);
+      const up = await fetch("/api/response-upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        body: form,
       });
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error(uploadData.message || 'File upload failed');
+      const upJson = await up.json();
+      if (!up.ok) throw new Error(upJson.error || "Upload failed");
 
-      // Submit response
-      const responseRes = await fetch('/api/response', {
-        method: 'POST',
+      // submit response
+      const resp = await fetch("/api/response", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({
           rfp: selectedRfp._id,
-          file: uploadData.filePath,
+          file: upJson.filePath,
         }),
       });
-      const responseData = await responseRes.json();
-      if (!responseRes.ok) throw new Error(responseData.message || 'Response submission failed');
-      
+      const respJson = await resp.json();
+      if (!resp.ok) throw new Error(respJson.error || "Submission failed");
+
       setSelectedRfp(null);
       setFile(null);
-      alert('Response submitted successfully!');
+      alert("Response submitted!");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -112,19 +106,29 @@ export default function BrowseRFPs() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {rfps.map((rfp: any) => (
+            {rfps.map((rfp) => (
               <Card key={rfp._id}>
                 <div className="flex justify-between items-start">
-                  <div>
+                  <div className="w-2/3">
                     <h3 className="text-lg font-semibold">{rfp.title}</h3>
                     <p className="text-gray-600 mt-2">{rfp.description}</p>
                     <p className="text-sm text-gray-500 mt-2">
                       Created: {new Date(rfp.createdAt).toLocaleDateString()}
                     </p>
+                    {rfp.versions.length > 0 && (
+                      <a
+                        href={rfp.versions[0].filePath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline text-sm mt-2 block"
+                      >
+                        Download Spec (v{rfp.versions[0].version})
+                      </a>
+                    )}
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-col items-end space-y-2">
                     <StatusBadge status={rfp.status} />
-                    {rfp.status === 'Published' && (
+                    {rfp.status === "Published" && (
                       <button
                         className="bg-green-600 text-white px-4 py-2 rounded text-sm"
                         onClick={() => setSelectedRfp(rfp)}
@@ -139,17 +143,18 @@ export default function BrowseRFPs() {
           </div>
         )}
 
-        {/* Response Modal */}
         {selectedRfp && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <Card className="w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Submit Response to: {selectedRfp.title}</h3>
+              <h3 className="text-lg font-semibold mb-4">
+                Submit Response to: {selectedRfp.title}
+              </h3>
               <form onSubmit={handleSubmitResponse}>
                 <input
                   type="file"
                   className="w-full border p-2 rounded mb-4"
                   accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                   required
                 />
                 <div className="flex space-x-2">
@@ -158,7 +163,7 @@ export default function BrowseRFPs() {
                     className="bg-green-600 text-white px-4 py-2 rounded"
                     disabled={submitting}
                   >
-                    {submitting ? 'Submitting...' : 'Submit Response'}
+                    {submitting ? "Submitting..." : "Submit Response"}
                   </button>
                   <button
                     type="button"
@@ -175,4 +180,12 @@ export default function BrowseRFPs() {
       </div>
     </div>
   );
-} 
+};
+
+const BrowseRFPs: React.FC = () => (
+  <ProtectedRoute allowedRoles={["Supplier"]}>
+    <BrowseRFPsPage />
+  </ProtectedRoute>
+);
+
+export default BrowseRFPs;

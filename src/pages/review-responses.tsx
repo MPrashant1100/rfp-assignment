@@ -1,73 +1,71 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Card from '../components/Card';
-import StatusBadge from '../components/StatusBadge';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Card from "@/components/Card";
+import StatusBadge from "@/components/StatusBadge";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
-function decodeToken(token: string) {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    return null;
-  }
+interface ResponseItem {
+  _id: string;
+  supplier: { email: string };
+  file: string;
+  status: string;
+  createdAt: string;
 }
 
-export default function ReviewResponses() {
-  const [responses, setResponses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [updating, setUpdating] = useState('');
+const ReviewResponsesPage: React.FC = () => {
   const router = useRouter();
-  const { rfp } = router.query;
+  const rfpId = Array.isArray(router.query.rfp)
+    ? router.query.rfp[0]
+    : router.query.rfp;
+
+  const [responses, setResponses] = useState<ResponseItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (!token) {
-      router.replace('/login');
-      return;
-    }
-    const decoded = decodeToken(token);
-    if (!decoded || decoded.role !== 'Buyer') {
-      router.replace('/dashboard');
-      return;
-    }
-    if (rfp) {
-      fetchResponses();
-    }
-  }, [router, rfp]);
-
-  const fetchResponses = async () => {
-    try {
-      const res = await fetch(`/api/response?rfp=${rfp}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to fetch responses');
-      setResponses(data.responses || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
+    if (!rfpId) {
       setLoading(false);
+      return;
     }
-  };
+    setLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/response?rfp=${rfpId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Failed to load responses");
+        setResponses(json.responses ?? []);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [rfpId]);
 
-  const updateResponseStatus = async (responseId: string, status: string) => {
-    setUpdating(responseId);
+  const updateStatus = async (id: string, status: string) => {
+    setUpdatingId(id);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/response-status', {
-        method: 'PATCH',
+      const res = await fetch("/api/response-status", {
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify({ responseId, status }),
+        body: JSON.stringify({ responseId: id, status }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to update status');
-      fetchResponses(); // Refresh the list
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Status update failed");
+      setResponses((prev) =>
+        prev.map((r) => (r._id === id ? { ...r, status } : r))
+      );
     } catch (err: any) {
       setError(err.message);
     } finally {
-      setUpdating('');
+      setUpdatingId(null);
     }
   };
 
@@ -81,8 +79,14 @@ export default function ReviewResponses() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow p-4">
+      <nav className="bg-white shadow p-4 flex justify-between items-center">
         <span className="font-bold text-xl">Review Responses</span>
+        <button
+          className="text-blue-600 hover:underline text-sm"
+          onClick={() => router.push("/my-rfps")}
+        >
+          Back to My RFPs
+        </button>
       </nav>
       <div className="max-w-4xl mx-auto mt-8 p-4">
         {error && <div className="text-red-500 mb-4">{error}</div>}
@@ -92,34 +96,43 @@ export default function ReviewResponses() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {responses.map((response: any) => (
-              <Card key={response._id}>
+            {responses.map((resp) => (
+              <Card key={resp._id}>
                 <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-semibold">Response from: {response.supplier?.email || 'Unknown'}</h3>
+                  <div className="w-2/3">
+                    <h3 className="text-lg font-semibold">
+                      From: {resp.supplier.email}
+                    </h3>
                     <p className="text-sm text-gray-500 mt-2">
-                      Submitted: {new Date(response.createdAt).toLocaleDateString()}
+                      Submitted: {new Date(resp.createdAt).toLocaleDateString()}
                     </p>
+                    <a
+                      href={resp.file}
+                      download
+                      className="text-blue-600 hover:underline text-sm mt-2 block"
+                    >
+                      Download Response
+                    </a>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <StatusBadge status={response.status} />
-                    {response.status === 'Submitted' && (
-                      <div className="flex space-x-2">
+                    <StatusBadge status={resp.status} />
+                    {resp.status === "Submitted" && (
+                      <>
                         <button
                           className="bg-green-600 text-white px-3 py-1 rounded text-sm"
-                          onClick={() => updateResponseStatus(response._id, 'Approved')}
-                          disabled={updating === response._id}
+                          onClick={() => updateStatus(resp._id, "Approved")}
+                          disabled={updatingId === resp._id}
                         >
-                          {updating === response._id ? 'Updating...' : 'Approve'}
+                          {updatingId === resp._id ? "Updating…" : "Approve"}
                         </button>
                         <button
                           className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-                          onClick={() => updateResponseStatus(response._id, 'Rejected')}
-                          disabled={updating === response._id}
+                          onClick={() => updateStatus(resp._id, "Rejected")}
+                          disabled={updatingId === resp._id}
                         >
-                          {updating === response._id ? 'Updating...' : 'Reject'}
+                          {updatingId === resp._id ? "Updating…" : "Reject"}
                         </button>
-                      </div>
+                      </>
                     )}
                   </div>
                 </div>
@@ -130,4 +143,12 @@ export default function ReviewResponses() {
       </div>
     </div>
   );
-} 
+};
+
+const ReviewResponses: React.FC = () => (
+  <ProtectedRoute allowedRoles={["Buyer"]}>
+    <ReviewResponsesPage />
+  </ProtectedRoute>
+);
+
+export default ReviewResponses;

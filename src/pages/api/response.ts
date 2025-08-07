@@ -1,36 +1,58 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '../../lib/mongodb';
-import Response from '../../models/Response';
-import User from '../../models/User';
-import { withRole, verifyToken } from '../../lib/auth';
+import dbConnect from '@/lib/mongodb';
+import ResponseModel from '@/models/Response';
+import { withRole, verifyToken } from '@/lib/auth';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   await dbConnect();
+
   if (req.method === 'POST') {
-    // Only Supplier can submit
-    return withRole(async (req: any, res: NextApiResponse) => {
-      const { rfp, file } = req.body;
+    // Supplier-only submit
+    return withRole(async (req2, res2) => {
+      const { rfp, file } = req2.body as { rfp?: string; file?: string };
       if (!rfp || !file) {
-        return res.status(400).json({ message: 'Missing required fields' });
+        return res2.status(400).json({ error: 'Missing required fields' });
       }
-      const user = req.user;
-      const response = await Response.create({
+      const user = (req2 as any).user;
+      const resp = await ResponseModel.create({
         rfp,
         supplier: user.userId,
         file,
         status: 'Submitted',
       });
-      res.status(201).json({ message: 'Response submitted', response });
+      return res2.status(201).json({ message: 'Response submitted', response: resp });
     }, ['Supplier'])(req, res);
-  } else if (req.method === 'GET') {
-    // List all responses for a given RFP id
-    const { rfp } = req.query;
-    if (!rfp) {
-      return res.status(400).json({ message: 'Missing rfp id' });
-    }
-    const responses = await Response.find({ rfp }).populate('supplier', 'email role');
-    res.status(200).json({ responses });
-  } else {
-    res.status(405).json({ message: 'Method not allowed' });
   }
-}
+
+  if (req.method === 'GET') {
+    const tokenData = verifyToken(req);
+    if (!tokenData) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { rfp } = req.query as { rfp?: string };
+    if (rfp) {
+      // Buyer: list all responses for a given RFP
+      if (tokenData.role !== 'Buyer') {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      const responses = await ResponseModel.find({ rfp })
+        .populate('supplier', 'email')
+        .lean();
+      return res.status(200).json({ responses });
+    } else {
+      // Supplier: list your own responses
+      if (tokenData.role !== 'Supplier') {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      const responses = await ResponseModel.find({ supplier: tokenData.userId })
+        .populate('rfp', 'title')
+        .lean();
+      return res.status(200).json({ responses });
+    }
+  }
+
+  return res.status(405).json({ error: 'Method Not Allowed' });
+};
+
+export default handler;
