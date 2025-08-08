@@ -4,14 +4,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Card from "@/components/Card";
 import StatusBadge from "@/components/StatusBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
-
-interface ResponseItem {
-  _id: string;
-  supplier: { email: string };
-  file: string;
-  status: string;
-  createdAt: string;
-}
+import { ResponseItem } from "interfaces";
 
 const ReviewResponsesPage: React.FC = () => {
   const router = useRouter();

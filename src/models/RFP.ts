@@ -1,28 +1,6 @@
 import mongoose, { Document, Schema, Model } from "mongoose";
 import User from "./User";
-
-export type RFPStatus =
-  | "Draft"
-  | "Published"
-  | "Under Review"
-  | "Approved"
-  | "Rejected";
-
-interface Version {
-  filePath: string;
-  version: number;
-  uploadedAt: Date;
-}
-
-export interface IRFP extends Document {
-  title: string;
-  description: string;
-  createdBy: mongoose.Types.ObjectId;
-  status: RFPStatus;
-  versions: Version[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { IRFP, Version } from "interfaces";
 
 const VersionSchema = new Schema<Version>(
   {

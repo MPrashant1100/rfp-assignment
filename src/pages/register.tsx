@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 
-export default function Register() {
+const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("Buyer");
@@ -77,4 +77,6 @@ export default function Register() {
       </form>
     </div>
   );
-}
+};
+
+export default Register;

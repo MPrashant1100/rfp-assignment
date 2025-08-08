@@ -4,21 +4,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Card from "@/components/Card";
 import StatusBadge from "@/components/StatusBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
-
-interface Version {
-  filePath: string;
-  version: number;
-  uploadedAt: string;
-}
-
-interface RFP {
-  _id: string;
-  title: string;
-  description: string;
-  status: string;
-  createdAt: string;
-  versions: Version[];
-}
+import { RFP } from "interfaces";
 
 const MyRFPsPage: React.FC = () => {
   const [rfps, setRfps] = useState<RFP[]>([]);

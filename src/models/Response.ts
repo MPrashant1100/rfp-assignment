@@ -1,21 +1,8 @@
 import mongoose, { Document, Schema, Model } from "mongoose";
 import User from "./User";
 import RFP from "./RFP";
+import { IResponse } from "interfaces";
 
-export type ResponseStatus =
-  | "Submitted"
-  | "Under Review"
-  | "Approved"
-  | "Rejected";
-
-export interface IResponse extends Document {
-  rfp: mongoose.Types.ObjectId;
-  supplier: mongoose.Types.ObjectId;
-  file: string;
-  status: ResponseStatus;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 const ResponseSchema = new Schema<IResponse>(
   {

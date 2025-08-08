@@ -1,14 +1,5 @@
+import { IUser } from "interfaces";
 import mongoose, { Document, Model, Schema } from "mongoose";
-
-export type UserRole = "Buyer" | "Supplier";
-
-export interface IUser extends Document {
-  email: string;
-  password: string;
-  role: UserRole;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 const UserSchema = new Schema<IUser>(
   {

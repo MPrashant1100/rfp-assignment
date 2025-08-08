@@ -3,14 +3,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Card from "@/components/Card";
 import StatusBadge from "@/components/StatusBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
-
-interface Response {
-  _id: string;
-  file: string;
-  status: string;
-  createdAt: string;
-  rfp?: { title: string };
-}
+import { Response } from "interfaces";
 
 const MyResponsesPage: React.FC = () => {
   const [responses, setResponses] = useState<Response[]>([]);

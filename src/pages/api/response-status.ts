@@ -1,8 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '@/lib/mongodb';
-import Response, { ResponseStatus } from '@/models/Response';
+import Response from '@/models/Response';
 import { withRole } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
+import { ResponseStatus } from 'interfaces';
 
 const validTransitions: Record<ResponseStatus, ResponseStatus[]> = {
   Submitted: ['Under Review', 'Approved', 'Rejected'],

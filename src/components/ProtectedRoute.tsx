@@ -1,11 +1,8 @@
 import React from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import useAuth from 'hooks/useAuth';
+import { Props } from 'interfaces';
 
-interface Props {
-  allowedRoles?: string[];
-  children: React.ReactNode;
-}
 
 export default function ProtectedRoute({ allowedRoles, children }: Props) {
   const { loading } = useAuth(allowedRoles);
