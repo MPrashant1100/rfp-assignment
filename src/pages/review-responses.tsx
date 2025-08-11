@@ -1,10 +1,19 @@
+// src/pages/review-responses.tsx
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Card from "@/components/Card";
 import StatusBadge from "@/components/StatusBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { ResponseItem } from "interfaces";
+import { isPdfUrl, toCloudinaryDownloadUrl } from "@/lib/cloudinaryUrl";
+
+interface ResponseItem {
+  _id: string;
+  supplier: { email: string };
+  file: string;
+  status: string;
+  createdAt: string;
+}
 
 const ReviewResponsesPage: React.FC = () => {
   const router = useRouter();
@@ -99,13 +108,24 @@ const ReviewResponsesPage: React.FC = () => {
                     <p className="text-sm text-gray-500 mt-2">
                       Submitted: {new Date(resp.createdAt).toLocaleDateString()}
                     </p>
-                    <a
-                      href={resp.file}
-                      download
-                      className="text-blue-600 hover:underline text-sm mt-2 block"
-                    >
-                      Download Response
-                    </a>
+                    <div className="mt-2 space-x-3">
+                      {isPdfUrl(resp.file) && (
+                        <a
+                          href={resp.file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          View PDF
+                        </a>
+                      )}
+                      <a
+                        href={toCloudinaryDownloadUrl(resp.file)}
+                        className="text-blue-600 hover:underline text-sm"
+                      >
+                        Download Response
+                      </a>
+                    </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     <StatusBadge status={resp.status} />
