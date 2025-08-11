@@ -1,15 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { NavBarProps } from 'interfaces';
 
-interface NavLink {
-  href: string;
-  label: string;
-}
-
-interface NavBarProps {
-  links: NavLink[];
-}
 
 const NavBar: React.FC<NavBarProps> = ({ links }) => {
   const router = useRouter();

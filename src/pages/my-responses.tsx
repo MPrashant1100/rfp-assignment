@@ -1,10 +1,12 @@
+// src/pages/my-responses.tsx
 import { useState, useEffect } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Card from "@/components/Card";
 import StatusBadge from "@/components/StatusBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { isPdfUrl, toCloudinaryDownloadUrl } from "@/lib/cloudinaryUrl";
 
-interface Response {
+interface ResponseItem {
   _id: string;
   file: string;
   status: string;
@@ -13,7 +15,7 @@ interface Response {
 }
 
 const MyResponsesPage: React.FC = () => {
-  const [responses, setResponses] = useState<Response[]>([]);
+  const [responses, setResponses] = useState<ResponseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -65,14 +67,24 @@ const MyResponsesPage: React.FC = () => {
                     <p className="text-sm text-gray-500 mt-2">
                       Submitted: {new Date(resp.createdAt).toLocaleDateString()}
                     </p>
-                    <a
-                      href={resp.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline text-sm mt-2 block"
-                    >
-                      Download Response
-                    </a>
+                    <div className="mt-2 space-x-3">
+                      {isPdfUrl(resp.file) && (
+                        <a
+                          href={resp.file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          View PDF
+                        </a>
+                      )}
+                      <a
+                        href={toCloudinaryDownloadUrl(resp.file)}
+                        className="text-blue-600 hover:underline text-sm"
+                      >
+                        Download Response
+                      </a>
+                    </div>
                   </div>
                   <StatusBadge status={resp.status} />
                 </div>

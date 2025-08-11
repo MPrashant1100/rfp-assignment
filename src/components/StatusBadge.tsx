@@ -1,7 +1,4 @@
-interface StatusBadgeProps {
-  status: string;
-  className?: string;
-}
+import { StatusBadgeProps } from "interfaces";
 
 export default function StatusBadge({ status, className = '' }: StatusBadgeProps) {
   const getStatusColor = (status: string) => {
